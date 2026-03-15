@@ -1,4 +1,8 @@
-A data engineering pipeline that generates synthetic patient data and detects anomalies.
+An end-to-end data engineering pipeline built with Python, Docker, and PostgreSQL. 
+Generates synthetic patient vitals using SDV/MEG, injects deliberate anomalies for 
+downstream ML detection, and loads the dataset into a local PostgreSQL database.
+Phase 1 (local foundation) is in active development. AWS cloud migration (Phase 2) 
+and ML anomaly detection with FastAPI serving (Phase 3) follow.
 
 Phase 1 in development:
 ## Local Development Environment
