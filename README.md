@@ -1,23 +1,32 @@
-An end-to-end data engineering pipeline built with Python, Docker, and PostgreSQL. 
-Generates synthetic patient vitals using SDV/MEG, injects deliberate anomalies for 
-downstream ML detection, and loads the dataset into a local PostgreSQL database.
-Phase 1 (local foundation) is in active development. AWS cloud migration (Phase 2) 
-and ML anomaly detection with FastAPI serving (Phase 3) follow.
+# Healthcare Data Engineering Pipeline
 
-Phase 1 in development:
-## Local Development Environment
+An end-to-end data engineering pipeline that generates synthetic patient 
+data using the MEG framework and detects anomalies using machine learning.
 
-This project uses Docker to manage its Python environment and dependencies. 
+## Project Status
+Phase 1 — Local Foundation (In Progress)
 
-### Prerequisites
-Make sure you have [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running on your machine.
+## Progress
+- [x] Docker environment configured with Jupyter Notebook
+- [x] UCI Heart Disease dataset (Cleveland) loaded and explored
+- [x] Dataset structure understood: 303 patients, 14 columns
+- [x] Hidden null values identified in Number of Major Vessels (4) and Thal (2)
+- [ ] ETL cleaning script
+- [ ] Synthetic data generation via MEG
+- [ ] Anomaly injection
+- [ ] PostgreSQL schema and load
 
-### 1. Build the Image
-If you are running this for the first time, or if you have added new libraries to the `Dockerfile`, build the image by running:
-`docker build -t my-data-env .`
+## Local Setup
+Make sure Docker Desktop is installed and running.
 
-### 2. Run Jupyter Notebook
-To start up the environment and launch Jupyter Notebook, run the following command:
-`docker run -p 8888:8888 my-data-env jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root`
+Build the image:
+docker build -t healthcare-pipeline .
 
-Once the server starts, hold `Command` and click the `127.0.0.1` link in your terminal to open Jupyter in your browser. To shut down the container, press `Ctrl+C` in your terminal.
+Run the container:
+docker run -p 8888:8888 -v $(pwd):/app healthcare-pipeline
+
+Open the localhost:8888 link in your terminal to access Jupyter.
+
+## Tech Stack
+Python · pandas · Docker · PostgreSQL (coming Phase 1)
+AWS S3 · Redshift · dbt · FastAPI · MLflow (coming Phase 2-4)
