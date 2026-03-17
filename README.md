@@ -1,20 +1,34 @@
 # Healthcare Data Engineering Pipeline
 
-An end-to-end data engineering pipeline that generates synthetic patient 
-data using the MEG framework and detects anomalies using machine learning.
+## Problem Statement
+This project architects an end-to-end, AWS-native Data Engineering pipeline designed to generate, process, evaluate, and securely serve synthetic patient telemetry data. By engineering synthetic vitals based on the UCI Heart Disease dataset, this pipeline provides a safe, privacy-compliant foundation for healthcare machine learning models.
 
-## Project Status
-Phase 1 — Local Foundation (In Progress)
+## Architecture & Design Decisions
+![Architecture Diagram Placeholder](./architecture.png)
+*(Diagram coming at the end of Phase 2)*
 
-## Progress
+**Architectural Note (OLTP vs. OLAP):** This project intentionally separates the operational database from the analytical warehouse. 
+***AWS RDS (PostgreSQL)** serves purely as the transactional store (OLTP), handling structured row inserts from the ETL pipeline. 
+***AWS Redshift** serves as the analytical data warehouse (OLAP), handling complex queries and acting as the transformation target for our dbt models.
+
+## Tech Stack
+* **Python & Pandas:** Core data extraction, transformation, and cleaning logic.
+* **Docker:** Containerization to ensure environment reproducibility across local and cloud environments.
+* **PostgreSQL (Local & AWS RDS):** Relational database for OLTP storage.
+* **Synthetic Data Generator (MEG/SDV):** Generates statistically plausible patient telemetry.
+* **scikit-learn:** Used for data normalization (StandardScaler) and anomaly detection (Isolation Forest).
+* **Upcoming (Phases 2-4):** AWS S3, AWS Redshift, dbt, FastAPI, MLflow, GitHub Actions, AWS App Runner.
+
+## Project Status: Phase 1 — Local Foundation (In Progress)
+
+### Progress Checklist
 - [x] Docker environment configured with Jupyter Notebook
-- [x] UCI Heart Disease dataset (Cleveland) loaded and explored
-- [x] Dataset structure understood: 303 patients, 14 columns
-- [x] Hidden null values identified in Number of Major Vessels (4) and Thal (2)
-- [ ] ETL cleaning script
-- [ ] Synthetic data generation via MEG
-- [ ] Anomaly injection
-- [ ] PostgreSQL schema and load
+- [x] UCI Heart Disease dataset loaded and explored
+- [x] **ETL Pipeline:** Handled nulls (medians), encoded categoricals (one-hot), and normalized numeric columns (StandardScaler).
+- [ ] Synthetic data generation (MEG / SDV Fallback)
+- [ ] Deliberate anomaly injection 
+- [ ] PostgreSQL schema creation and local data load
+
 
 ## Local Setup
 Make sure Docker Desktop is installed and running.
