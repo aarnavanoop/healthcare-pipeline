@@ -67,13 +67,13 @@ def verify_clean_data(df):
     print(f"\nRow count: {len(df)}")
 
 if __name__ == "__main__":
-    df = load_data('./heart+disease/processed.cleveland.data')
+    df = load_data('./data/raw/heart+disease/processed.cleveland.data')
     df = fix_object_columns(df)
     df = fix_target_column(df)
     df = encode_categorical_columns(df)
     df = handle_outliers(df)
     df = normalise_continuous_columns(df)
     verify_clean_data(df)
-    df.to_csv('cleaned_cleveland.csv', index=False)
+    df.to_csv('./data/processed/cleaned_cleveland.csv', index=False)
     print("ETL complete. Cleaned data saved.")
 
