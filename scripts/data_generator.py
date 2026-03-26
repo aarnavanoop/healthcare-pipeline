@@ -1,3 +1,4 @@
+import uuid
 import pandas as pd
 import numpy as np
 from sdv.metadata import SingleTableMetadata
@@ -80,6 +81,9 @@ if __name__ == "__main__":
 
     print("\n--- ANOMALY STATS ---")
     print(synthetic_data[synthetic_data['is_anomaly'] == True].describe())
+
+    print("Generating a unique ID for each row")
+    synthetic_data.insert(0, 'patient_id', [str(uuid.uuid4()) for _ in range(len(synthetic_data))])
 
     print("Converting the synthetic data into a csv file")
     synthetic_data.to_csv('./data/processed/synthetic_cleveland.csv', index=False)
