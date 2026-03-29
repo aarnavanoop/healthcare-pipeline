@@ -20,6 +20,10 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+        
+      - name: Run unit tests with verbose output
+        run: pytest -vv
+
 
       - name: Run tests
         run: PYTHONPATH=. pytest tests/
