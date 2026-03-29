@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 import logging
 from datetime import datetime
+from app.routes import patients
+from app.routes import auth
 
 
 logging.basicConfig(
@@ -31,3 +33,6 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "database_connected": "pending"
     }
+
+app.include_router(patients.router)
+app.include_router(auth.router)
