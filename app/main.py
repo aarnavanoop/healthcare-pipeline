@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from app.routes import patients
 from app.routes import auth
+import asyncio
 
 
 logging.basicConfig(
@@ -28,6 +29,7 @@ async def health_check():
     Used by AWS App Runner and Docker health checks.
     """
     logger.info("Health check endpoint queried.")
+    #await asyncio.sleep(1)
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
