@@ -1,6 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import logging
-from fastapi import Depends
 from app.db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -18,10 +17,8 @@ router = APIRouter(
 @router.get("/")
 async def get_patients(db: AsyncSession = Depends(get_db)):
     """
-    Returns a paginated list of patients (Dummy endpoint)
+    Returns a paginated list of patients
     """
-
-    await asyncio.sleep(5)
 
     logger.info("Fetched patient list")
     stmt = select(Patient).limit(10)
