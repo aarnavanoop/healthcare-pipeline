@@ -1,0 +1,24 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git repository data
+.git/
+.gitignore
+
+# IDE and environment files
+.vscode/
+.idea/
+.env
+
+# Tests and local databases
+tests/
+*.db
+*.sqlite3

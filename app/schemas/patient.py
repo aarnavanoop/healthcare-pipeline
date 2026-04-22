@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from datetime import date
+from uuid import UUID
 
 class PatientVitals(BaseModel):
 
@@ -29,7 +29,7 @@ class PatientVitals(BaseModel):
 
 class PatientResponse(BaseModel):
     patient_id: UUID
-    age: int
+    age: float
     sex: int
 
     vitals: PatientVitals
@@ -42,7 +42,7 @@ class PatientResponse(BaseModel):
 
 class PatientSummary(BaseModel):
     patient_id: UUID
-    age: int
+    age: float
     sex: int
     diagnosis_of_disease: int
     is_anomaly: bool
