@@ -6,6 +6,7 @@ from app.routes import auth
 import asyncio
 
 
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
