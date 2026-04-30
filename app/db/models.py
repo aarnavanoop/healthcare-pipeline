@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Integer, Float, Boolean
+from sqlalchemy import Integer, Float, Boolean, Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from app.db.session import Base
@@ -36,5 +36,13 @@ class Patient(Base):
     slope_peak_3: Mapped[int] = mapped_column("slope_peak_3.0")
     
     is_anomaly: Mapped[bool]
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
 
 
