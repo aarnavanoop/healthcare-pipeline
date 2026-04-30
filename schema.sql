@@ -23,3 +23,10 @@ CREATE TABLE healthcare_data.patients (
    "slope_peak_3.0" INT NOT NULL,
    is_anomaly BOOLEAN NOT NULL
 );
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE
+);
