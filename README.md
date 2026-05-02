@@ -5,7 +5,7 @@ This project architects a decoupled, full-stack AI application designed to secur
 
 ## Architecture & Design Decisions
 ![Architecture Diagram Placeholder](./architecture.png)
-*(Diagram coming at the end of Phase 2)*
+*(Diagram to be updated upon App Runner Deployment in Phase 4)*
 
 **Architectural Note (Decoupled Design):** This project intentionally separates the backend engine from the presentation layer to mimic modern enterprise software environments. 
 * **The Engine (Python/FastAPI):** Handles all business logic, asynchronous database connections, and AI orchestration.
@@ -14,26 +14,41 @@ This project architects a decoupled, full-stack AI application designed to secur
 
 ## Tech Stack
 * **Backend:** Python 3.11, FastAPI, SQLAlchemy (async), Pydantic v2
+* **Authentication:** JWT (python-jose), bcrypt, passlib
 * **Database:** PostgreSQL, `pgvector` extension
-* **AI/ML:** OpenAI API, LangChain, SDV Gaussian Copula (Synthetic Generation)
+* **AI/ML:** OpenAI API, SDV Gaussian Copula (Synthetic Generation)
 * **Frontend:** React (Vite), Tailwind CSS
 * **Infrastructure:** Docker Compose, GitHub Actions, AWS App Runner
 
-## Project Status: Phase 1 — Local Data Foundation (Completed)
+## Project Status: Phase 2 — The API Engine (Completed)
 
-### Progress Checklist
+Phase 2 focused on building a production-grade, asynchronous RESTful API on top of the Phase 1 PostgreSQL database. Every design decision prioritized correctness, strict validation, and engineering maturity over speed.
+
+### Phase 2 Progress Checklist
+- [x] **Async Architecture:** Implemented `asyncpg` and asynchronous SQLAlchemy sessions to prevent event-loop blocking during I/O operations.
+- [x] **Strict Type Validation:** Engineered comprehensive Pydantic v2 schemas for all request/response bodies, including a fully nested `VitalsSchema`.
+- [x] **JWT Authentication Flow:** Built secure `/auth/register` (bcrypt hashing) and `/auth/login` (OAuth2PasswordRequestForm) endpoints.
+- [x] **Route Protection:** Created a robust `get_current_user` dependency to lock down all `/patients` routes via JWT Bearer validation.
+- [x] **Production Guardrails:** Configured `slowapi` for IP-based rate limiting (100 req/min) and custom global exception handlers (422, 500) to ensure predictable JSON responses and prevent HTML stack-trace leakage.
+- [x] **Integration Testing Suite:** Achieved 100% test coverage for Phase 2 using Pytest. Overcame async database leakage by isolating the `TestClient` within context managers and strategically utilizing FastAPI's `dependency_overrides` for isolated authentication bypass.
+
+### Phase 1 Progress Checklist (Completed)
 - [x] Docker environment configured (Python App + PostgreSQL Database).
-- [x] UCI Heart Disease dataset ingested and explored.
-- [x] **ETL Pipeline:** Handled nulls via imputation, one-hot encoded categorical variables, and normalized numeric columns using `StandardScaler`.
-- [x] **Synthetic Data Generation:** Trained an SDV Gaussian Copula model to generate 3,000 synthetic patient records. Diagnostic quality score achieved: **89.64%**.
-- [x] **Anomaly Injection:** Engineered deliberate clinical anomalies (extreme standard deviations) into 5% of the data to serve as ground-truth test cases for the upcoming AI retrieval system.
-- [x] **Database Architecture:** Designed a hardened PostgreSQL schema featuring universally unique identifiers (UUIDs), strict typing, and `NOT NULL` constraints.
-- [x] **Automated Orchestration:** Developed `pipeline.py` to automate the end-to-end data foundational workflow in a single command.
+- [x] ETL Pipeline executed on UCI Heart Disease dataset (`StandardScaler` normalization, categorical encoding).
+- [x] SDV Gaussian Copula trained to generate 3,000 synthetic patient records (Diagnostic Quality: 89.64%).
+- [x] Deliberate clinical anomalies injected into 5% of data.
+- [x] Hardened PostgreSQL schema (UUIDs, `NOT NULL` constraints).
 
 ## Upcoming Phases
-* **Phase 2 (Weeks 4-6):** FastAPI CRUD endpoint development, JWT Authentication, and async SQLAlchemy integration.
-* **Phase 3 (Weeks 7-9):** Vectorizing synthetic doctor's notes, `pgvector` similarity search, and LLM RAG integration.
+* **Phase 3 (Weeks 7-9):** Vectorizing synthetic doctor's notes, `pgvector` similarity search, and manual LLM RAG integration (no LangChain).
 * **Phase 4 (Weeks 10-12):** React dashboard development, SSE streaming chat, and AWS App Runner CI/CD deployment.
+
+## Local Setup & API Execution
+Ensure Docker Desktop is installed and running on your machine.
+
+**1. Spin up the infrastructure:**
+```bash
+docker compose up -d --build
 
 ## Local Setup & Execution
 Ensure Docker Desktop is installed and running on your machine.
