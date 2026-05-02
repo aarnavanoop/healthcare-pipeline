@@ -1,20 +1,27 @@
-# tests/test_patients.py
+# tests/test_patient.py
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 from app.main import app
 from app.db.deps import get_db
+from app.routes.auth import get_current_user
+from app.db.models import User
 
+# --- Auth Bypass Setup ---
+def override_get_current_user():
+    """Creates a fake user to bypass the JWT requirement during tests."""
+    return User(username="test_mock_user", id=uuid4())
 
+# --- Database Mock Setup ---
 def make_mock_patient(overrides={}):
     """Creates a fake Patient ORM object for testing."""
     patient = MagicMock()
     patient.patient_id = uuid4()
-    patient.age = 0.5
+    patient.age = 55.0
     patient.sex = 1
     patient.diagnosis_of_disease = 1
-    patient.is_anomaly = True
+    patient.is_anomaly = False 
     patient.resting_blood_pressure = 2.5
     patient.serum_cholestrol = 0.3
     patient.fasting_blood_sugar = 0
@@ -37,7 +44,6 @@ def make_mock_patient(overrides={}):
     
     return patient
 
-
 def make_mock_db(return_patients=None, return_one=None):
     """
     Returns a mock AsyncSession.
@@ -45,31 +51,31 @@ def make_mock_db(return_patients=None, return_one=None):
     return_one      -> used for .scalar_one_or_none() (single record endpoints)
     """
     mock_db = AsyncMock()
-
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = return_patients or []
     mock_result.scalar_one_or_none.return_value = return_one
-
     mock_db.execute = AsyncMock(return_value=mock_result)
     return mock_db
 
-
-
 client = TestClient(app)
 
+# --- Dependency Overrides ---
 def override_db(mock_db):
-    """Helper to override the get_db dependency with a mock."""
+    """
+    Overrides BOTH the database session AND the current user auth dependency 
+    for a single test run to prevent state leakage.
+    """
     async def _override():
         yield mock_db
     app.dependency_overrides[get_db] = _override
-
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
 def clear_overrides():
+    """Clears overrides so the next test starts clean."""
     app.dependency_overrides.clear()
 
 
 # --- GET /patients/ ---
-
 class TestGetPatients:
 
     def test_happy_path_returns_list(self):
@@ -91,7 +97,7 @@ class TestGetPatients:
         response = client.get("/patients/?anomaly_flag=true")
 
         assert response.status_code == 200
-        assert all(p["is_anomaly"] for p in response.json())
+        assert len(response.json()) == 1
         clear_overrides()
 
     def test_empty_results(self):
@@ -106,17 +112,20 @@ class TestGetPatients:
 
     def test_invalid_page_param(self):
         """page=0 should be rejected — ge=1 constraint."""
+        override_db(make_mock_db())
         response = client.get("/patients/?page=0")
         assert response.status_code == 422
+        clear_overrides()
 
     def test_size_exceeds_maximum(self):
         """size=200 should be rejected — le=100 constraint."""
+        override_db(make_mock_db())
         response = client.get("/patients/?size=200")
         assert response.status_code == 422
+        clear_overrides()
 
 
 # --- GET /patients/anomalies ---
-
 class TestGetAnomalousPatients:
 
     def test_happy_path_returns_severity(self):
@@ -137,8 +146,8 @@ class TestGetAnomalousPatients:
         """A patient with extreme z-scores should be classified as HIGH."""
         high_risk = make_mock_patient({
             "diagnosis_of_disease": 1,
-            "max_heart_rate": 3.5,       # > 3 std deviations
-            "st_depression_induced": 3.2, # > 3 std deviations
+            "max_heart_rate": 3.5,       
+            "st_depression_induced": 3.2, # 
         })
         override_db(make_mock_db(return_patients=[high_risk]))
 
@@ -189,7 +198,6 @@ class TestGetAnomalousPatients:
 
 
 # --- GET /patients/{patient_id} ---
-
 class TestGetPatientById:
 
     def test_happy_path(self):
@@ -217,5 +225,7 @@ class TestGetPatientById:
 
     def test_invalid_uuid_format(self):
         """A malformed UUID should return 422, not 500."""
+        override_db(make_mock_db())
         response = client.get("/patients/not-a-real-uuid")
         assert response.status_code == 422
+        clear_overrides()

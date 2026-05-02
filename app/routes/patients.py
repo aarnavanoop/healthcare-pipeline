@@ -7,6 +7,8 @@ import logging
 import uuid
 from app.db.deps import get_db
 from app.db.models import Patient
+from app.routes.auth import get_current_user
+from app.db.models import User
 
 logger = logging.getLogger("api_engine.patients")
 
@@ -120,6 +122,7 @@ async def get_anomalous_patients(
     page: int = Query(1, ge=1, description="Page number (starts at 1)"),
     size: int = Query(10, ge=1, le=100, description="Number of records per page"),
     severity: Optional[str] = Query(None, description="Filter by severity: LOW, MEDIUM, HIGH"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Returns a paginated list of anomalous patients with computed severity tiers.
@@ -168,9 +171,11 @@ async def get_patients(
     page: int = Query(1, ge=1, description="Page number (starts at 1)"),
     size: int = Query(10, ge=1, le=100, description="Number of records per page"),
     anomaly_flag: Optional[bool] = Query(None, description="Filter by anomaly presence"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Returns a paginated list of patients
+    Now protected: Requires a valid JWT token
     """
     logger.info(f"Fetching patient list -> page: {page}, size: {size}")
 
@@ -190,7 +195,8 @@ async def get_patients(
 @router.get("/{patient_id}", response_model=PatientDetailResponse)
 async def get_patient_id(
     patient_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
     Returns a single patient by their UUID, including fully nested vitals.
