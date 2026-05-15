@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE SCHEMA IF NOT EXISTS healthcare_data;
 
 CREATE TABLE healthcare_data.patients (
@@ -22,6 +24,23 @@ CREATE TABLE healthcare_data.patients (
    "slope_peak_2.0" INT NOT NULL,
    "slope_peak_3.0" INT NOT NULL,
    is_anomaly BOOLEAN NOT NULL
+);
+
+CREATE TABLE healthcare_data.patient_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES healthcare_data.patients(patient_id),
+    note_text TEXT NOT NULL,
+    embedding vector(1536),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE healthcare_data.rag_audit (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query TEXT NOT NULL,
+    context_notes TEXT NOT NULL,
+    response_text TEXT NOT NULL,
+    latency_ms FLOAT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE users (
