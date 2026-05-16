@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional
+from arq import create_pool
+from arq.connections import RedisSettings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, ConfigDict
 import logging
 import uuid
+
 from app.db.deps import get_db
-from app.db.models import Patient
+from app.db.models import Patient, User
 from app.routes.auth import get_current_user
-from app.db.models import User
+from app.core.ws_manager import manager
 
 logger = logging.getLogger("api_engine.patients")
 
@@ -19,20 +22,13 @@ router = APIRouter(
 
 # --- Helper Functions ---
 def determine_severity(patient_record) -> str:
-    """
-    Derives severity from normalised (z-score) clinical columns.
-    Values are StandardScaler output — magnitude indicates how far from average.
-    abs(value) > 2 means 2+ standard deviations from mean, which is clinically significant.
-    """
     if patient_record is None:
         return "LOW"
     
     severity_score = 0
 
-
     if patient_record.diagnosis_of_disease == 1:
         severity_score += 2
-
 
     if abs(patient_record.max_heart_rate) > 3:
         severity_score += 3
@@ -53,7 +49,6 @@ def determine_severity(patient_record) -> str:
     elif abs(patient_record.resting_blood_pressure) > 2:
         severity_score += 1
 
-
     if patient_record.exercise_induced_angina == 1:
         severity_score += 1
 
@@ -66,7 +61,6 @@ def determine_severity(patient_record) -> str:
 
 
 # --- Pydantic Schemas ---
-
 class VitalsSchema(BaseModel):
     resting_blood_pressure: float
     serum_cholestrol: float
@@ -114,7 +108,63 @@ class AnomalousDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PatientCreate(BaseModel):
+    age: float
+    sex: int
+    resting_blood_pressure: float
+    serum_cholestrol: float
+    fasting_blood_sugar: int
+    max_heart_rate: float
+    exercise_induced_angina: int
+    st_depression_induced: float
+    number_of_vessels: float
+    diagnosis_of_disease: int
+    chest_pain_2: int
+    chest_pain_3: int
+    chest_pain_4: int
+    resting_ecg_1: int
+    resting_ecg_2: int
+    thal_6: int
+    thal_7: int
+    slope_peak_2: int
+    slope_peak_3: int
+    is_anomaly: bool
+
+
 # --- Endpoints ---
+@router.post("/", status_code=201)
+async def create_patient(
+    patient_in: PatientCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Simulates a live hospital system sending new patient telemetry.
+    If the incoming record is flagged as an anomaly, it broadcasts an alert via WebSockets.
+    """
+    new_patient_id = uuid.uuid4()
+    
+    new_patient = Patient(
+        patient_id=new_patient_id,
+        **patient_in.model_dump()
+    )
+    
+    db.add(new_patient)
+    await db.commit()
+    await db.refresh(new_patient)
+
+
+    if new_patient.is_anomaly:
+        severity = determine_severity(new_patient)
+        alert_msg = f"CRITICAL: New anomalous telemetry received. Severity: {severity}."
+        await manager.broadcast_anomaly(str(new_patient_id), alert_msg)
+        logger.info(f"Broadcasted anomaly alert for patient {new_patient_id}")
+        
+        
+        redis_pool = await create_pool(RedisSettings(host='redis', port=6379))
+        await redis_pool.enqueue_job('generate_and_embed_note', str(new_patient_id))
+        logger.info(f"Enqueued embedding job for patient {new_patient_id}")
+
 
 @router.get("/anomalies", response_model=list[AnomalousDetailResponse])
 async def get_anomalous_patients(
@@ -124,11 +174,6 @@ async def get_anomalous_patients(
     severity: Optional[str] = Query(None, description="Filter by severity: LOW, MEDIUM, HIGH"),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Returns a paginated list of anomalous patients with computed severity tiers.
-    Severity is derived from normalised clinical columns — not stored in DB.
-    Sorted HIGH -> MEDIUM -> LOW by default.
-    """
     logger.info(f"Retrieving anomalous patients -> page: {page}, size: {size}, severity filter: {severity}")
 
     stmt = select(Patient).where(Patient.is_anomaly == True)
@@ -154,10 +199,8 @@ async def get_anomalous_patients(
         for p in patients
     ]
 
-
     if severity:
         response = [r for r in response if r.severity_level == severity.upper()]
-
 
     severity_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
     response.sort(key=lambda r: severity_order[r.severity_level])
@@ -173,10 +216,6 @@ async def get_patients(
     anomaly_flag: Optional[bool] = Query(None, description="Filter by anomaly presence"),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Returns a paginated list of patients
-    Now protected: Requires a valid JWT token
-    """
     logger.info(f"Fetching patient list -> page: {page}, size: {size}")
 
     stmt = select(Patient)
@@ -196,11 +235,8 @@ async def get_patients(
 async def get_patient_id(
     patient_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    Returns a single patient by their UUID, including fully nested vitals.
-    """
     logger.info(f"Fetching patient id: {patient_id}")
 
     stmt = select(Patient).where(Patient.patient_id == patient_id)

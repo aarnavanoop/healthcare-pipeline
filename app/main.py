@@ -12,6 +12,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.routes import patients
 from app.routes import auth
 from app.routes import chat
+from app.routes import alerts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,3 +69,4 @@ async def health_check(request: Request):
 app.include_router(patients.router)
 app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(alerts.router)
