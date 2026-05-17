@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 from datetime import datetime
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -26,6 +27,14 @@ app = FastAPI(
     title="AI Patient Triage API",
     description="Backend engine for processing patient telemetry and RAG integration.",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.state.limiter = limiter
