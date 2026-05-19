@@ -16,7 +16,7 @@ async def chat_endpoint(request: ChatRequest, db: AsyncSession = Depends(get_db)
         start_time = time.time()
         
         query_embedding = await generate_embedding(request.query)
-        context_notes = await retrieve_context(db, query_embedding)
+        context_notes = await retrieve_context(db, query_embedding, request.patient_id)
         prompt = build_prompt(request.query, context_notes)
         
         stream = await client.chat.completions.create(

@@ -1,3 +1,4 @@
+import uuid
 import os
 from openai import AsyncOpenAI
 from typing import List, AsyncGenerator
@@ -15,9 +16,12 @@ async def generate_embedding(text_input: str) -> List[float]:
     )
     return response.data[0].embedding
 
-async def retrieve_context(session: AsyncSession, query_embedding: List[float], top_k: int = 3) -> List[str]:
-    """Step 2: Cosine similarity search in pgvector."""
-    stmt = select(PatientNote).order_by(
+async def retrieve_context(session: AsyncSession, query_embedding: List[float], patient_id: str, top_k: int = 3) -> List[str]:
+    """Step 2: Cosine similarity search in pgvector strictly filtered by patient ID."""
+    patient_uuid = uuid.UUID(patient_id)   
+    stmt = select(PatientNote).where(
+        PatientNote.patient_id == patient_uuid
+    ).order_by(
         PatientNote.embedding.cosine_distance(query_embedding)
     ).limit(top_k)
     
@@ -40,10 +44,10 @@ def build_prompt(query: str, context_notes: List[str]) -> str:
     User Question: {query}
     """
 
-async def generate_chat_response(session: AsyncSession, query: str) -> str:
-    """Step 4: Standard OpenAI completion using the augmented prompt."""
+async def generate_chat_response(session: AsyncSession, query: str, patient_id: str) -> str:
+    """Step 4: Standard OpenAI completion using the augmented prompt filtered by patient ID."""
     query_embedding = await generate_embedding(query)
-    context_notes = await retrieve_context(session, query_embedding)
+    context_notes = await retrieve_context(session, query_embedding, patient_id)
     prompt = build_prompt(query, context_notes)
     
     response = await client.chat.completions.create(
@@ -55,10 +59,10 @@ async def generate_chat_response(session: AsyncSession, query: str) -> str:
     )
     return response.choices[0].message.content
 
-async def generate_chat_stream(session: AsyncSession, query: str) -> AsyncGenerator[str, None]:
-    """Step 4 (Alternative): Streaming OpenAI completion for the frontend UI."""
+async def generate_chat_stream(session: AsyncSession, query: str, patient_id: str) -> AsyncGenerator[str, None]:
+    """Step 4 (Alternative): Streaming OpenAI completion for the frontend UI filtered by patient ID."""
     query_embedding = await generate_embedding(query)
-    context_notes = await retrieve_context(session, query_embedding)
+    context_notes = await retrieve_context(session, query_embedding, patient_id)
     prompt = build_prompt(query, context_notes)
     
     stream = await client.chat.completions.create(

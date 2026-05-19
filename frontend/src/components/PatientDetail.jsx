@@ -52,6 +52,9 @@ export default function PatientDetail() {
     setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
+    // Send clean text to embedding functions to preserve vector calculation scores
+    const enrichedQuery = userQuery;
+
     try {
       const response = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
@@ -59,7 +62,10 @@ export default function PatientDetail() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ query: userQuery })
+        body: JSON.stringify({ 
+          query: enrichedQuery,
+          patient_id: patient.patient_id // Bind explicit metadata context for the database query
+        })
       });
 
       if (!response.ok) throw new Error('Chat request failed');
@@ -84,7 +90,7 @@ export default function PatientDetail() {
                 const lastIndex = newMessages.length - 1;
                 newMessages[lastIndex] = {
                   ...newMessages[lastIndex],
-                  content: newMessages[lastIndex].content + dataText
+                  content: (newMessages[lastIndex].content + dataText).replace('[DONE]', '')
                 };
                 return newMessages;
               });
@@ -94,6 +100,15 @@ export default function PatientDetail() {
       }
     } catch (error) {
       console.error(error);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastIndex = newMessages.length - 1;
+        newMessages[lastIndex] = {
+          role: 'assistant',
+          content: 'An error occurred while connecting to the triage pipeline backend.'
+        };
+        return newMessages;
+      });
     } finally {
       setIsStreaming(false);
     }
