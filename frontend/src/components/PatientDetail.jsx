@@ -23,11 +23,8 @@ export default function PatientDetail() {
     const fetchPatient = async () => {
       try {
         const response = await fetch(`http://localhost:8000/patients/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        
         if (response.ok) {
           const data = await response.json();
           setPatient(data);
@@ -36,10 +33,7 @@ export default function PatientDetail() {
         console.error(error);
       }
     };
-
-    if (token && id) {
-      fetchPatient();
-    }
+    if (token && id) fetchPatient();
   }, [token, id]);
 
   const handleSendMessage = async () => {
@@ -52,9 +46,6 @@ export default function PatientDetail() {
     setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-    // Send clean text to embedding functions to preserve vector calculation scores
-    const enrichedQuery = userQuery;
-
     try {
       const response = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
@@ -62,9 +53,9 @@ export default function PatientDetail() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          query: enrichedQuery,
-          patient_id: patient.patient_id // Bind explicit metadata context for the database query
+        body: JSON.stringify({
+          query: userQuery,
+          patient_id: patient.patient_id
         })
       });
 
@@ -83,7 +74,6 @@ export default function PatientDetail() {
         for (const line of lines) {
           if (line.startsWith('data:')) {
             const dataText = line.replace(/^data:\s?/, '');
-            
             if (dataText !== '[DONE]' && dataText.trim() !== '') {
               setMessages(prev => {
                 const newMessages = [...prev];
@@ -115,9 +105,7 @@ export default function PatientDetail() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
+    if (e.key === 'Enter') handleSendMessage();
   };
 
   if (!patient) {
@@ -128,14 +116,20 @@ export default function PatientDetail() {
     );
   }
 
+  const dv = patient.display_vitals;
+  const sexLabel = patient.sex === 1 ? 'Male' : 'Female';
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
+        {/* Header */}
         <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Patient: {patient.patient_id}</h1>
-            <p className="text-sm text-gray-500">{patient.age} y/o | {patient.is_anomaly ? 'Anomaly Detected' : 'Clear'}</p>
+            <p className="text-sm text-gray-500">
+              {patient.display_age} y/o | {sexLabel} | {patient.is_anomaly ? 'Anomaly Detected' : 'Clear'}
+            </p>
           </div>
           <Link to="/dashboard" className="text-gray-600 hover:text-gray-900 border px-3 py-1 rounded">
             &larr; Back to Dashboard
@@ -143,33 +137,56 @@ export default function PatientDetail() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm h-full">
+
+          {/* Vitals Panel */}
+          <div className="bg-white p-6 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Telemetry Vitals</h2>
             <div className="grid grid-cols-2 gap-4">
+
               <div className="p-4 bg-gray-50 rounded border">
                 <p className="text-sm text-gray-500">Resting BP</p>
-                <p className="text-2xl font-bold text-red-600">{patient.vitals.resting_blood_pressure}</p>
+                <p className={`text-2xl font-bold ${dv.resting_blood_pressure < 90 || dv.resting_blood_pressure > 140 ? 'text-red-600' : 'text-green-700'}`}>
+                  {dv.resting_blood_pressure} <span className="text-sm font-normal text-gray-400">mmHg</span>
+                </p>
               </div>
+
               <div className="p-4 bg-gray-50 rounded border">
                 <p className="text-sm text-gray-500">Max Heart Rate</p>
-                <p className="text-2xl font-bold text-red-600">{patient.vitals.max_heart_rate}</p>
+                <p className={`text-2xl font-bold ${dv.max_heart_rate < 60 || dv.max_heart_rate > 100 ? 'text-red-600' : 'text-green-700'}`}>
+                  {dv.max_heart_rate} <span className="text-sm font-normal text-gray-400">bpm</span>
+                </p>
               </div>
+
               <div className="p-4 bg-gray-50 rounded border">
-                <p className="text-sm text-gray-500">Serum Cholestrol</p>
-                <p className="text-2xl font-bold text-gray-900">{patient.vitals.serum_cholestrol}</p>
+                <p className="text-sm text-gray-500">Serum Cholesterol</p>
+                <p className={`text-2xl font-bold ${dv.serum_cholestrol > 200 ? 'text-yellow-600' : 'text-gray-900'}`}>
+                  {dv.serum_cholestrol} <span className="text-sm font-normal text-gray-400">mg/dL</span>
+                </p>
               </div>
+
               <div className="p-4 bg-gray-50 rounded border">
                 <p className="text-sm text-gray-500">ST Depression</p>
-                <p className="text-2xl font-bold text-yellow-600">{patient.vitals.st_depression_induced}</p>
+                <p className={`text-2xl font-bold ${dv.st_depression_induced > 2 ? 'text-red-600' : dv.st_depression_induced > 1 ? 'text-yellow-600' : 'text-gray-900'}`}>
+                  {dv.st_depression_induced} <span className="text-sm font-normal text-gray-400">mm</span>
+                </p>
               </div>
+
+              <div className="p-4 bg-gray-50 rounded border col-span-2">
+                <p className="text-sm text-gray-500">Major Vessels Affected</p>
+                <p className={`text-2xl font-bold ${dv.number_of_vessels > 0 ? 'text-yellow-600' : 'text-green-700'}`}>
+                  {dv.number_of_vessels} <span className="text-sm font-normal text-gray-400">vessels</span>
+                </p>
+              </div>
+
             </div>
           </div>
 
+          {/* Chat Panel */}
           <div className="bg-white flex flex-col rounded-lg shadow-sm h-[600px]">
             <div className="p-4 border-b bg-gray-50 rounded-t-lg">
               <h2 className="text-lg font-semibold text-gray-900">AI Triage Assistant (RAG)</h2>
             </div>
-            
+
             <div className="flex-1 p-4 overflow-y-auto space-y-4">
               {messages.length === 0 && (
                 <div className="text-center text-gray-500 mt-10">
@@ -188,16 +205,16 @@ export default function PatientDetail() {
 
             <div className="p-4 border-t">
               <div className="flex space-x-2">
-                <input 
-                  type="text" 
-                  placeholder="Ask about this patient's telemetry..." 
+                <input
+                  type="text"
+                  placeholder="Ask about this patient's telemetry..."
                   className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={isStreaming}
                 />
-                <button 
+                <button
                   onClick={handleSendMessage}
                   disabled={isStreaming || !inputValue.trim()}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
@@ -207,8 +224,8 @@ export default function PatientDetail() {
               </div>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ from app.db.deps import get_db
 from app.db.models import Patient, User
 from app.routes.auth import get_current_user
 from app.core.ws_manager import manager
+from app.utils.denormalize import denormalize_patient
 
 logger = logging.getLogger("api_engine.patients")
 
@@ -82,13 +83,24 @@ class VitalsSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DisplayVitalsSchema(BaseModel):
+    """Human-readable vitals with real-world units, inverse-transformed from z-scores."""
+    resting_blood_pressure: float   # mmHg
+    serum_cholestrol: float         # mg/dL
+    max_heart_rate: float           # bpm
+    st_depression_induced: float    # mm
+    number_of_vessels: float        # count
+
+
 class PatientDetailResponse(BaseModel):
     patient_id: uuid.UUID
-    age: float
+    age: float          # normalised z-score (kept for ML compatibility)
+    display_age: int    # human-readable age in years
     sex: int
     diagnosis_of_disease: int
     is_anomaly: bool
     vitals: VitalsSchema
+    display_vitals: DisplayVitalsSchema   # human-readable vitals for UI
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -138,29 +150,18 @@ async def create_patient(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Simulates a live hospital system sending new patient telemetry.
-    If the incoming record is flagged as an anomaly, it broadcasts an alert via WebSockets.
-    """
     new_patient_id = uuid.uuid4()
-    
-    new_patient = Patient(
-        patient_id=new_patient_id,
-        **patient_in.model_dump()
-    )
-    
+    new_patient = Patient(patient_id=new_patient_id, **patient_in.model_dump())
     db.add(new_patient)
     await db.commit()
     await db.refresh(new_patient)
-
 
     if new_patient.is_anomaly:
         severity = determine_severity(new_patient)
         alert_msg = f"CRITICAL: New anomalous telemetry received. Severity: {severity}."
         await manager.broadcast_anomaly(str(new_patient_id), alert_msg)
         logger.info(f"Broadcasted anomaly alert for patient {new_patient_id}")
-        
-        
+
         redis_pool = await create_pool(RedisSettings(host='redis', port=6379))
         await redis_pool.enqueue_job('generate_and_embed_note', str(new_patient_id))
         logger.info(f"Enqueued embedding job for patient {new_patient_id}")
@@ -169,9 +170,9 @@ async def create_patient(
 @router.get("/anomalies", response_model=list[AnomalousDetailResponse])
 async def get_anomalous_patients(
     db: AsyncSession = Depends(get_db),
-    page: int = Query(1, ge=1, description="Page number (starts at 1)"),
-    size: int = Query(10, ge=1, le=100, description="Number of records per page"),
-    severity: Optional[str] = Query(None, description="Filter by severity: LOW, MEDIUM, HIGH"),
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    severity: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user)
 ):
     logger.info(f"Retrieving anomalous patients -> page: {page}, size: {size}, severity filter: {severity}")
@@ -179,7 +180,6 @@ async def get_anomalous_patients(
     stmt = select(Patient).where(Patient.is_anomaly == True)
     offset_value = (page - 1) * size
     stmt = stmt.offset(offset_value).limit(size)
-
     result = await db.execute(stmt)
     patients = result.scalars().all()
 
@@ -204,31 +204,25 @@ async def get_anomalous_patients(
 
     severity_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
     response.sort(key=lambda r: severity_order[r.severity_level])
-
     return response
 
 
 @router.get("/")
 async def get_patients(
     db: AsyncSession = Depends(get_db),
-    page: int = Query(1, ge=1, description="Page number (starts at 1)"),
-    size: int = Query(10, ge=1, le=100, description="Number of records per page"),
-    anomaly_flag: Optional[bool] = Query(None, description="Filter by anomaly presence"),
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    anomaly_flag: Optional[bool] = Query(None),
     current_user: User = Depends(get_current_user)
 ):
     logger.info(f"Fetching patient list -> page: {page}, size: {size}")
-
     stmt = select(Patient)
     if anomaly_flag is not None:
         stmt = stmt.where(Patient.is_anomaly == anomaly_flag)
-
     offset_value = (page - 1) * size
     stmt = stmt.offset(offset_value).limit(size)
-
     result = await db.execute(stmt)
-    patients = result.scalars().all()
-
-    return patients
+    return result.scalars().all()
 
 
 @router.get("/{patient_id}", response_model=PatientDetailResponse)
@@ -265,11 +259,24 @@ async def get_patient_id(
         slope_peak_3=db_patient.slope_peak_3
     )
 
+
+    denorm = denormalize_patient(db_patient)
+
+    display_vitals = DisplayVitalsSchema(
+        resting_blood_pressure=denorm['resting_blood_pressure'],
+        serum_cholestrol=denorm['serum_cholestrol'],
+        max_heart_rate=denorm['max_heart_rate'],
+        st_depression_induced=denorm['st_depression_induced'],
+        number_of_vessels=denorm['number_of_vessels'],
+    )
+
     return PatientDetailResponse(
         patient_id=db_patient.patient_id,
         age=db_patient.age,
+        display_age=denorm['age'],
         sex=db_patient.sex,
         diagnosis_of_disease=db_patient.diagnosis_of_disease,
         is_anomaly=db_patient.is_anomaly,
-        vitals=vitals_data
+        vitals=vitals_data,
+        display_vitals=display_vitals,
     )
